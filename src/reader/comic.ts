@@ -35,6 +35,11 @@ export interface ComicPage {
   read(): Promise<Blob | ArrayBuffer | Uint8Array<ArrayBuffer>>;
 }
 
+/** "./issue\2.jpg" and "issue/2.jpg" sort the same. */
+function sortKey(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^(\.\/)+/, "");
+}
+
 /** Filters archive entries down to page images in natural order. */
 export function selectPages<T extends { path: string }>(entries: readonly T[]): Array<T & { type: string }> {
   const pages: Array<T & { type: string }> = [];
@@ -42,7 +47,7 @@ export function selectPages<T extends { path: string }>(entries: readonly T[]): 
     const type = pageImageType(entry.path);
     if (type) pages.push({ ...entry, type });
   }
-  return pages.sort((a, b) => naturalCompare(a.path, b.path));
+  return pages.sort((a, b) => naturalCompare(sortKey(a.path), sortKey(b.path)));
 }
 
 const CACHE_SIZE = 4;
@@ -55,7 +60,7 @@ const CACHE_SIZE = 4;
 export abstract class ComicAdapter implements ReaderAdapter {
   private pages: ComicPage[] = [];
   private readonly cache = new Map<number, Promise<string>>();
-  private closed = false;
+  protected closed = false;
 
   protected abstract listPages(file: File): Promise<ComicPage[]>;
   protected releaseArchive(): void {}

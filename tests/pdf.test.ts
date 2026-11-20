@@ -24,7 +24,9 @@ function loadingTask(promise: Promise<unknown>): { promise: Promise<unknown>; de
 const pdfFile = (): File => new File(["%PDF-1.7"], "test.pdf");
 
 describe("PdfAdapter", () => {
-  beforeEach(() => pdfjs.getDocument.mockReset());
+  beforeEach(() => {
+    pdfjs.getDocument.mockReset();
+  });
 
   it("opens a document and reports its page count", async () => {
     pdfjs.getDocument.mockReturnValue(loadingTask(Promise.resolve({ numPages: 12 })));

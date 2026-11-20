@@ -12,7 +12,7 @@ import { ReaderError, type ReaderAdapter } from "../types";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-// Copied to public/pdfjs by scripts/copy-pdf-assets.mjs; must be absolute for the worker.
+// Copied to public/pdfjs by scripts/copy-runtime-assets.mjs; must be absolute for the worker.
 const assetUrl = (folder: string): string => new URL(`pdfjs/${folder}/`, document.baseURI).href;
 
 // Keeps huge pages (posters, high-DPI displays) from exhausting canvas memory.

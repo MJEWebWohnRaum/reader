@@ -36,6 +36,11 @@ describe("selectPages", () => {
     expect(pages.map((p) => p.path)).toEqual(["page1.jpg", "page01b.jpg", "Page2.jpg", "page10.jpg"]);
   });
 
+  it("ignores ./ prefixes and backslashes when sorting", () => {
+    const pages = selectPages(["./issue/10.jpg", "issue/2.jpg", "issue\\1.jpg"].map((path) => ({ path })));
+    expect(pages.map((p) => p.path)).toEqual(["issue\\1.jpg", "issue/2.jpg", "./issue/10.jpg"]);
+  });
+
   it("sorts folders naturally too", () => {
     expect(["ch10/1.jpg", "ch2/1.jpg"].sort(naturalCompare)).toEqual(["ch2/1.jpg", "ch10/1.jpg"]);
   });

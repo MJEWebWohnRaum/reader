@@ -20,4 +20,10 @@ export function registerAllFormats(): void {
     mimeTypes: ["application/vnd.comicbook+zip", "application/x-cbz"],
     load: async () => (await import("./adapters/cbz")).default(),
   });
+  registerFormat({
+    label: "Comic (CBR)",
+    extensions: ["cbr"],
+    mimeTypes: ["application/vnd.comicbook-rar", "application/x-cbr"],
+    load: async () => (await import("./adapters/archive")).default(),
+  });
 }

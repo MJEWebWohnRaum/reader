@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-pdf-assets.mjs",
+    "predev": "node scripts/copy-runtime-assets.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-pdf-assets.mjs",
+    "prebuild": "node scripts/copy-runtime-assets.mjs",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
@@ -23,6 +23,7 @@
   "dependencies": {
     "epubjs": "^0.3.93",
     "jszip": "^3.10.2",
+    "libarchive.js": "2.0.2",
     "pdfjs-dist": "^6.5.438"
   }
 }

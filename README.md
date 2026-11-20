@@ -1,6 +1,40 @@
 # Reader
 
-A local reader for PDF, EPUB, and comic archives. The project is currently in its planning and setup phase; see [PROJEKT.md](PROJEKT.md) for scope and roadmap.
+A calm, local reader for PDF, EPUB and comic archives (CBZ, CBR). Everything runs in the browser: no server, no upload, no network requests after the app has loaded. See [PROJEKT.md](PROJEKT.md) for scope and roadmap.
+
+## Usage
+
+```powershell
+npm install
+npm run dev        # development server
+npm run build      # production build in dist/
+npm run preview    # serve dist/ locally
+```
+
+Open a file with the **Öffnen** button or drop it onto the window.
+
+| Action | Keys / mouse |
+|---|---|
+| Next / previous page | → / ←, click on the right / left half, mouse wheel |
+| Fullscreen | F or the button at the top right |
+| Dark mode (default on, remembered) | D or the moon button |
+
+The toolbar fades out while reading and comes back when the mouse moves.
+
+### Limits
+
+- EPUB pages are screens of reflowed text, so the page count is an estimate that is refined while reading.
+- Comic archives read via libarchive (CBR) are limited to 1.5 GB, because the whole archive is held in WebAssembly memory.
+- Password-protected PDFs and archives are not supported.
+
+## Development
+
+```powershell
+npm run typecheck  # TypeScript (app and tests)
+npm test           # Vitest
+```
+
+`npm run dev` and `npm run build` first copy pdf.js and libarchive runtime files (fonts, CMaps, workers, WebAssembly) into `public/` via `scripts/copy-runtime-assets.mjs`, so they are served locally.
 
 ## Public test fixtures
 
