@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormatEntry } from "../src/reader/registry";
 import { ReaderError, type ReaderAdapter } from "../src/reader/types";
-import { Viewer, type ViewerState } from "../src/ui/viewer";
+import { spreadPages, spreadStart, Viewer, type ViewerState } from "../src/ui/viewer";
 
 class FakeAdapter implements ReaderAdapter {
   rendered: number[] = [];
@@ -22,10 +22,20 @@ class FakeAdapter implements ReaderAdapter {
   pageCount(): number {
     return this.count;
   }
-  renderPage(index: number): Promise<void> {
+  renderPage(index: number, container?: HTMLElement): Promise<void> {
     this.rendered.push(index);
-    if (!this.manualRender) return Promise.resolve();
-    return new Promise((resolve) => this.pendingRenders.push(resolve));
+    // Like real fixed-layout adapters: the page replaces the container's content.
+    const draw = (): void => container?.replaceChildren(document.createElement("canvas"));
+    if (!this.manualRender) {
+      draw();
+      return Promise.resolve();
+    }
+    return new Promise((resolve) =>
+      this.pendingRenders.push(() => {
+        draw();
+        resolve();
+      }),
+    );
   }
   close(): void {
     this.closed = true;
@@ -260,5 +270,158 @@ describe("Viewer", () => {
     expect(adapter.closed).toBe(true);
     expect(viewer.getState().status).toBe("empty");
     expect(host.children).toHaveLength(0);
+  });
+});
+
+describe("double page", () => {
+  const double = { doublePage: true, textScale: 1, textWidth: "medium" as const };
+  let host: HTMLElement;
+  const noop = (): void => {};
+
+  beforeEach(() => {
+    host = document.createElement("div");
+  });
+
+  it("pairs pages with the cover alone", () => {
+    expect([0, 1, 2, 3, 4].map(spreadStart)).toEqual([0, 1, 1, 3, 3]);
+    expect(spreadPages(0, 10)).toEqual([0]);
+    expect(spreadPages(1, 10)).toEqual([1, 2]);
+    expect(spreadPages(9, 10)).toEqual([9]);
+  });
+
+  it("renders two pages into two slots and turns by spreads", async () => {
+    const adapter = new FakeAdapter(5);
+    const containers: HTMLElement[] = [];
+    adapter.renderPage = (index: number, container?: HTMLElement) => {
+      adapter.rendered.push(index);
+      if (container) containers.push(container);
+      return Promise.resolve();
+    };
+    const viewer = new Viewer(host, () => format(adapter), noop, double);
+    await viewer.open(file());
+    await flush();
+    expect(viewer.getState()).toMatchObject({ page: 0, pageEnd: 0 });
+    expect(host.querySelectorAll(".spread-pair")).toHaveLength(1);
+    expect(host.querySelector(".spread-pair")?.classList.contains("single")).toBe(true);
+    viewer.next();
+    await flush();
+    expect(viewer.getState()).toMatchObject({ page: 1, pageEnd: 2 });
+    expect(adapter.rendered.slice(-2)).toEqual([1, 2]);
+    expect(containers.at(-2)?.classList.contains("left")).toBe(true);
+    expect(containers.at(-1)?.classList.contains("right")).toBe(true);
+    // Old pairs are replaced only once the new one is complete.
+    expect(host.querySelectorAll(".spread-pair")).toHaveLength(1);
+    expect(host.querySelector(".spread-pair.pending")).toBeNull();
+    viewer.next();
+    await flush();
+    expect(viewer.getState()).toMatchObject({ page: 3, pageEnd: 4 });
+    viewer.next(); // Already showing the last page.
+    expect(viewer.getState().page).toBe(3);
+    viewer.prev();
+    viewer.prev();
+    expect(viewer.getState()).toMatchObject({ page: 0, pageEnd: 0 });
+  });
+
+  it("switches between single and double page while reading", async () => {
+    const adapter = new FakeAdapter(6);
+    const viewer = new Viewer(host, () => format(adapter), noop);
+    await viewer.open(file());
+    viewer.goTo(4);
+    await flush();
+    viewer.setViewOptions(double);
+    expect(viewer.getState()).toMatchObject({ page: 3, pageEnd: 4 });
+    await flush();
+    expect(host.querySelectorAll(".page-slot")).toHaveLength(2);
+    viewer.setViewOptions({ ...double, doublePage: false });
+    expect(viewer.getState()).toMatchObject({ page: 3, pageEnd: 3 });
+    await flush();
+    expect(host.querySelectorAll(".page-slot")).toHaveLength(0);
+  });
+
+  it("does not leave the old single page behind when switching during a render", async () => {
+    const adapter = new FakeAdapter(6);
+    let finish: () => void = () => {};
+    let hold = false;
+    adapter.renderPage = (index: number, container?: HTMLElement) => {
+      adapter.rendered.push(index);
+      const draw = (): void => {
+        const page = document.createElement("img");
+        page.alt = `p${index}`;
+        container?.replaceChildren(page);
+      };
+      if (!hold) {
+        draw();
+        return Promise.resolve();
+      }
+      hold = false;
+      return new Promise<void>((resolve) => {
+        finish = () => {
+          draw();
+          resolve();
+        };
+      });
+    };
+    const viewer = new Viewer(host, () => format(adapter), noop);
+    await viewer.open(file());
+    await flush();
+    hold = true;
+    viewer.next(); // Single page 2 starts rendering and hangs ...
+    viewer.setViewOptions(double); // ... while double page is switched on.
+    finish();
+    await flush();
+    await flush();
+    const element = host.querySelector(".document");
+    expect(element?.children).toHaveLength(1);
+    expect(element?.firstElementChild?.classList.contains("spread-pair")).toBe(true);
+    expect([...host.querySelectorAll(".page-slot img")].map((i) => i.getAttribute("alt"))).toEqual(["p1", "p2"]);
+  });
+
+  it("shows the intact page when its partner fails", async () => {
+    const adapter = new FakeAdapter(6);
+    adapter.renderPage = (index: number, container?: HTMLElement) => {
+      if (index === 2) return Promise.reject(new ReaderError("Seite 3 ist kaputt."));
+      container?.replaceChildren(document.createElement("img"));
+      return Promise.resolve();
+    };
+    const viewer = new Viewer(host, () => format(adapter), noop, double);
+    await viewer.open(file());
+    await flush();
+    viewer.next();
+    await flush();
+    expect(viewer.getState()).toMatchObject({ page: 1, pageEnd: 2, message: "Seite 3 ist kaputt." });
+    expect(host.querySelector(".page-slot.left img")).not.toBeNull();
+    expect(host.querySelector(".page-slot.right")?.children).toHaveLength(0);
+  });
+
+  it("handles short documents and an even page count at the end", async () => {
+    const two = new FakeAdapter(2);
+    const viewer = new Viewer(host, () => format(two), noop, double);
+    await viewer.open(file());
+    expect(viewer.getState()).toMatchObject({ page: 0, pageEnd: 0 });
+    viewer.next();
+    expect(viewer.getState()).toMatchObject({ page: 1, pageEnd: 1 });
+    viewer.next();
+    expect(viewer.getState().page).toBe(1);
+
+    const four = new FakeAdapter(4);
+    const viewer4 = new Viewer(document.createElement("div"), () => format(four), noop, double);
+    await viewer4.open(file());
+    viewer4.next();
+    viewer4.next();
+    expect(viewer4.getState()).toMatchObject({ page: 3, pageEnd: 3 });
+  });
+
+  it("leaves double page to adapters that lay out text themselves", async () => {
+    const adapter = new FakeAdapter(10);
+    const received: unknown[] = [];
+    Object.assign(adapter, { setViewOptions: (options: unknown) => received.push(options) });
+    const viewer = new Viewer(host, () => format(adapter), noop, double);
+    await viewer.open(file());
+    expect(received).toEqual([double]);
+    expect(viewer.getState()).toMatchObject({ textOptions: true, page: 0, pageEnd: 0 });
+    viewer.next();
+    expect(viewer.getState()).toMatchObject({ page: 1, pageEnd: 1 });
+    viewer.setViewOptions({ ...double, textScale: 1.25 });
+    expect(received.at(-1)).toMatchObject({ textScale: 1.25 });
   });
 });

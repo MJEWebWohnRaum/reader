@@ -62,6 +62,10 @@ interface ReaderAdapter {
   // Optional, für umfließende Formate: meldet, wenn die angezeigte Seite vom
   // angefragten Index abweicht (z. B. Buchanfang nach Umbruch früher erreicht).
   onPageChange?(listener: (index: number) => void): void;
+  // Optional, für umfließende Formate: übernimmt Doppelseite, Schriftgröße und
+  // Textbreite selbst. Ohne diese Methode stellt der Viewer bei Doppelseite zwei
+  // Seiten nebeneinander dar (feste Seiten: PDF, Comics).
+  setViewOptions?(options: ViewOptions): void;
 }
 ```
 Die UI kennt nur dieses Interface, niemals ein konkretes Format.
@@ -81,6 +85,7 @@ Bei Fenstergrößenänderung rendert die UI die aktuelle Seite neu.
 2. CBZ + PDF
 3. EPUB
 4. CBR (CB7/CBT zurückgestellt, siehe `PROJEKT.md`)
+5. Ansichtsoptionen: Doppelseite, EPUB-Schriftgröße und -Textbreite
 
 Nach jeder Phase: kurz testen, dann Review (siehe unten), dann erst die nächste Phase.
 

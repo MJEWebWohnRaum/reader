@@ -1,5 +1,5 @@
 import ePub, { type Book, type Contents, type Location, type Rendition } from "epubjs";
-import { ReaderError, type ReaderAdapter } from "../types";
+import { ReaderError, type ReaderAdapter, type ViewOptions } from "../types";
 
 // Short sections (title pages, images) say little about text density; ignore them.
 const MIN_SAMPLE_CHARS = 3000;
@@ -31,6 +31,9 @@ export class EpubAdapter implements ReaderAdapter {
   /** Measured screens per spine index at the current container size. */
   private readonly sectionScreens = new Map<number, number>();
   private layoutSize = "";
+  private options: ViewOptions = { doublePage: false, textScale: 1, textWidth: "medium" };
+  private pageElement: HTMLElement | undefined;
+  private pendingOptions: ViewOptions | undefined;
   private themeCss = "";
   private closed = false;
 
@@ -69,30 +72,49 @@ export class EpubAdapter implements ReaderAdapter {
     this.pageListener = listener;
   }
 
+  /**
+   * Only records the settings: a re-flow in the middle of a page walk would shift
+   * the position. They are applied at the start of the next (serialized) render,
+   * which the viewer requests right after this call.
+   */
+  setViewOptions(options: ViewOptions): void {
+    if (this.rendition) this.pendingOptions = options;
+    else this.options = options;
+  }
+
   async renderPage(index: number, container: HTMLElement): Promise<void> {
     if (this.closed || !this.book) return;
     this.target = index;
     this.updateTheme(container);
-    const size = `${container.clientWidth}x${container.clientHeight}`;
+
+    let rendition = this.rendition;
+    const relaid = rendition !== undefined && this.pendingOptions !== undefined;
+    if (rendition && this.pendingOptions) {
+      this.applyOptions(rendition, this.pendingOptions);
+      this.pendingOptions = undefined;
+    }
+    // Font size and double page change how much text fits on a screen, just like the window size.
+    const size = `${container.clientWidth}x${container.clientHeight}:${this.options.textScale}:${this.options.textWidth}:${this.options.doublePage}`;
     if (size !== this.layoutSize) {
       // Screens per section measured at another size no longer apply.
       this.layoutSize = size;
       this.sectionScreens.clear();
     }
 
-    let rendition = this.rendition;
     if (!rendition) {
       const page = document.createElement("div");
       page.className = "epub-page";
       container.replaceChildren(page);
+      this.pageElement = page;
+      this.applyPageStyle();
       rendition = this.createRendition(this.book, page);
       this.rendition = rendition;
       this.position = 0;
       await rendition.display();
       if (this.closed) return;
       this.location = await settledLocation(rendition);
-    } else if (index === this.position) {
-      // Resize or theme refresh: epub.js re-flows by itself; only refresh the location.
+    } else if (index === this.position || relaid) {
+      // Resize, theme refresh or new settings: epub.js re-flows by itself; only refresh the location.
       this.location = (await settledLocation(rendition)) ?? this.location;
     }
 
@@ -122,6 +144,7 @@ export class EpubAdapter implements ReaderAdapter {
     const book = this.book;
     this.book = undefined;
     this.rendition = undefined;
+    this.pageElement = undefined;
     if (!book) return;
     const urls = blobUrlsOf(book);
     try {
@@ -142,7 +165,27 @@ export class EpubAdapter implements ReaderAdapter {
       allowScriptedContent: false,
     });
     rendition.hooks.content.register((contents: Contents) => this.applyTheme(contents.document));
+    applySpread(rendition, this.options.doublePage);
+    if (this.options.textScale !== 1) rendition.themes.fontSize(fontSize(this.options.textScale));
     return rendition;
+  }
+
+  private applyOptions(rendition: Rendition, options: ViewOptions): void {
+    const previous = this.options;
+    this.options = options;
+    this.applyPageStyle();
+    if (options.doublePage !== previous.doublePage) applySpread(rendition, options.doublePage);
+    if (options.textScale !== previous.textScale) rendition.themes.fontSize(fontSize(options.textScale));
+    // Re-measure the (possibly wider or narrower) column; epub.js re-flows and keeps the position.
+    if (options.textWidth !== previous.textWidth || options.doublePage !== previous.doublePage) relayout(rendition);
+  }
+
+  /** Column width and double page are plain CSS on the page element (see styles.css). */
+  private applyPageStyle(): void {
+    const page = this.pageElement;
+    if (!page) return;
+    page.dataset.width = this.options.textWidth;
+    page.classList.toggle("double", this.options.doublePage);
   }
 
   private updateCount(): void {
@@ -153,7 +196,9 @@ export class EpubAdapter implements ReaderAdapter {
       this.setCount(Math.max(this.count, floor));
       return;
     }
-    this.sectionScreens.set(location.start.index, location.start.displayed.total);
+    // In double page mode epub.js counts columns, but one turn moves a whole spread.
+    const columnsPerScreen = this.options.doublePage ? 2 : 1;
+    this.sectionScreens.set(location.start.index, Math.ceil(location.start.displayed.total / columnsPerScreen));
     if (location.atEnd) {
       this.setCount(this.position + 1);
       return;
@@ -219,6 +264,27 @@ export class EpubAdapter implements ReaderAdapter {
     }
     style.textContent = this.themeCss;
   }
+}
+
+function fontSize(scale: number): string {
+  return `${Math.round(scale * 100)}%`;
+}
+
+function applySpread(rendition: Rendition, doublePage: boolean): void {
+  // The column width is ours to choose (styles.css), so don't let epub.js's
+  // 800 px minimum silently fall back to a single column.
+  rendition.spread(doublePage ? "always" : "none", 1);
+}
+
+/**
+ * Makes epub.js re-measure its container and re-flow. Called without a size on
+ * purpose: passing one would pin the view to fixed pixels and stop it from
+ * following later window resizes. The typings only declare the sized form.
+ */
+function relayout(rendition: Rendition): void {
+  // Cast only widens the declared signature to the optional parameters epub.js accepts.
+  const resize = rendition.resize as (width?: number, height?: number) => void;
+  resize.call(rendition);
 }
 
 /**

@@ -18,8 +18,11 @@ Open a file with the **Öffnen** button or drop it onto the window.
 | Next / previous page | → / ←, click on the right / left half, mouse wheel |
 | Fullscreen | F or the button at the top right |
 | Dark mode (default on, remembered) | D or the moon button |
+| Double page (remembered) | 2 or the double page button |
+| EPUB font size (remembered) | + / − or the A+ / A− buttons |
+| EPUB text width: narrow, medium, wide (remembered) | W or the width button |
 
-The toolbar fades out while reading and comes back when the mouse moves.
+The toolbar fades out while reading and comes back when the mouse moves. In double page view, PDFs and comics show the cover alone and then pages 2+3, 4+5 …; EPUBs show two text columns.
 
 ### Limits
 

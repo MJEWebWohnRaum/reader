@@ -3,9 +3,16 @@ export interface ControlActions {
   prev(): void;
   toggleFullscreen(): void;
   toggleTheme(): void;
+  toggleDoublePage(): void;
+  textLarger(): void;
+  textSmaller(): void;
+  cycleTextWidth(): void;
 }
 
-/** Arrow keys turn pages, F toggles fullscreen, D toggles dark mode. */
+/**
+ * Arrow keys turn pages, F toggles fullscreen, D dark mode, 2 double page;
+ * + / − change the font size and W the text width (reflowable formats).
+ */
 export function bindKeyboard(target: Document | HTMLElement, actions: ControlActions): () => void {
   const handler = (e: Event): void => {
     if (!(e instanceof KeyboardEvent)) return;
@@ -26,6 +33,22 @@ export function bindKeyboard(target: Document | HTMLElement, actions: ControlAct
       case "D":
         if (e.repeat) return;
         actions.toggleTheme();
+        break;
+      case "2":
+        if (e.repeat) return;
+        actions.toggleDoublePage();
+        break;
+      case "+":
+      case "=": // "+" without Shift on US layouts.
+        actions.textLarger();
+        break;
+      case "-":
+        actions.textSmaller();
+        break;
+      case "w":
+      case "W":
+        if (e.repeat) return;
+        actions.cycleTextWidth();
         break;
       default:
         return;

@@ -1,10 +1,28 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import { bindClickZones, bindKeyboard, WheelPager } from "../src/ui/controls";
 
-type MockActions = Record<"next" | "prev" | "toggleFullscreen" | "toggleTheme", Mock<() => void>>;
+type ActionName =
+  | "next"
+  | "prev"
+  | "toggleFullscreen"
+  | "toggleTheme"
+  | "toggleDoublePage"
+  | "textLarger"
+  | "textSmaller"
+  | "cycleTextWidth";
+type MockActions = Record<ActionName, Mock<() => void>>;
 
 function mockActions(): MockActions {
-  return { next: vi.fn(), prev: vi.fn(), toggleFullscreen: vi.fn(), toggleTheme: vi.fn() };
+  return {
+    next: vi.fn(),
+    prev: vi.fn(),
+    toggleFullscreen: vi.fn(),
+    toggleTheme: vi.fn(),
+    toggleDoublePage: vi.fn(),
+    textLarger: vi.fn(),
+    textSmaller: vi.fn(),
+    cycleTextWidth: vi.fn(),
+  };
 }
 
 function key(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
@@ -28,6 +46,21 @@ describe("bindKeyboard", () => {
     dispose();
     key(document, { key: "ArrowRight" });
     expect(actions.next).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps 2, +, - and W to the view options", () => {
+    const actions = mockActions();
+    const dispose = bindKeyboard(document, actions);
+    key(document, { key: "2" });
+    key(document, { key: "+" });
+    key(document, { key: "-" });
+    key(document, { key: "w" });
+    key(document, { key: "2", repeat: true });
+    expect(actions.toggleDoublePage).toHaveBeenCalledTimes(1);
+    expect(actions.textLarger).toHaveBeenCalledTimes(1);
+    expect(actions.textSmaller).toHaveBeenCalledTimes(1);
+    expect(actions.cycleTextWidth).toHaveBeenCalledTimes(1);
+    dispose();
   });
 
   it("ignores modifier shortcuts, key repeat for toggles and typing in inputs", () => {

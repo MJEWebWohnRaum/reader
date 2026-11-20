@@ -25,15 +25,20 @@ Fokus auf ruhiges Lesen: Vollbild, Darkmode, einfaches Blättern. Keine Biblioth
 - Seite passt sich an die Fensterhöhe an
 - Verständliche Fehlermeldung bei kaputten oder nicht unterstützten Dateien
 
+**Erweiterung V1.1 (mit Marcel abgestimmt):**
+- Doppelseiten-Ansicht für alle Formate (umschaltbar, wird gespeichert)
+  - PDF und Comics: erste Seite (Cover) einzeln, danach 2+3, 4+5 …
+  - EPUB: zwei Textspalten nebeneinander
+- EPUB: Schriftgröße und Textbreite einstellbar, wird gespeichert
+
 **Testumgebung:**
 - Abnahme zunächst nur in Chrome 157.0.8103.51
 - Beispiel-Dateien für EPUB, CBR, CBZ und PDF liegen in `test-daten/`
 - CB7/CBT, zusätzliche RAR-Varianten und beschädigte Dateien werden vorerst zurückgestellt; die vorhandenen CBR-Beispiele bleiben Teil der Formatprüfung
 
 **Bewusst nicht enthalten (spätere Versionen):**
-- Doppelseiten-Ansicht
 - Leserichtung rechts nach links (Manga)
-- Zoom, Lesezeichen, Lesefortschritt merken
+- Zoom (PDF, Comics), Lesezeichen, Lesefortschritt merken
 - Bibliotheksansicht, Cover-Übersicht
 - Seiten invertieren / Darkmode für Seiteninhalte
 - Inhaltsverzeichnis bei EPUB/PDF
@@ -43,7 +48,8 @@ Fokus auf ruhiges Lesen: Vollbild, Darkmode, einfaches Blättern. Keine Biblioth
 2. **CBZ + PDF** – die beiden einfachen Formate
 3. **EPUB** – umfließender Text mit Pagination
 4. **CBR** – Archivformat über WASM (höchstes Risiko, daher zuletzt); CB7/CBT sind zurückgestellt
-5. **Desktop (optional)** – Tauri-Hülle, Builds für macOS und Windows, ggf. über GitHub Actions
+5. **Ansichtsoptionen (V1.1)** – Doppelseite, EPUB-Schriftgröße und -Textbreite
+6. **Desktop (optional)** – Tauri-Hülle, Builds für macOS und Windows, ggf. über GitHub Actions
 
 Jede Phase endet mit Tests und einem Code-Review durch eine zweite Claude-Instanz.
 

@@ -3,7 +3,9 @@ import { enableFileDrop, pickFile } from "./platform/files";
 import { onFullscreenChange, toggleFullscreen } from "./platform/fullscreen";
 import { registerAllFormats } from "./reader/formats";
 import { findFormat, supportedExtensions } from "./reader/registry";
+import type { TextWidth, ViewOptions } from "./reader/types";
 import { bindClickZones, bindKeyboard, bindWheel, type ControlActions } from "./ui/controls";
+import { loadViewOptions, nextTextWidth, saveViewOptions, stepTextScale } from "./ui/settings";
 import { applyTheme, loadTheme, toggleTheme } from "./ui/theme";
 import { Viewer, type ViewerState } from "./ui/viewer";
 
@@ -34,7 +36,9 @@ function render(state: Readonly<ViewerState>): void {
   }
   fileName.textContent = state.fileName;
   document.title = state.fileName ? `${state.fileName} – Reader` : "Reader";
-  pageIndicator.textContent = state.status === "ready" ? `Seite ${state.page + 1} / ${state.pageCount}` : "";
+  const pages = state.pageEnd > state.page ? `${state.page + 1}–${state.pageEnd + 1}` : `${state.page + 1}`;
+  pageIndicator.textContent = state.status === "ready" ? `Seite ${pages} / ${state.pageCount}` : "";
+  body.classList.toggle("has-text-options", state.status === "ready" && state.textOptions);
   message.textContent = state.message;
   if (state.status !== previousStatus) {
     previousStatus = state.status;
@@ -43,8 +47,30 @@ function render(state: Readonly<ViewerState>): void {
   }
 }
 
-const viewer = new Viewer(byId("page-host"), findFormat, render);
+let viewOptions = loadViewOptions();
+const viewer = new Viewer(byId("page-host"), findFormat, render, viewOptions);
 render(viewer.getState());
+
+const WIDTH_LABELS: Record<TextWidth, string> = { narrow: "schmal", medium: "mittel", wide: "breit" };
+
+function showViewOptions(options: ViewOptions): void {
+  byId("double-page-button").setAttribute("aria-pressed", String(options.doublePage));
+  byId("text-width-button").title = `Textbreite: ${WIDTH_LABELS[options.textWidth]} (W)`;
+}
+
+function updateViewOptions(patch: Partial<ViewOptions>): void {
+  viewOptions = { ...viewOptions, ...patch };
+  saveViewOptions(viewOptions);
+  showViewOptions(viewOptions);
+  viewer.setViewOptions(viewOptions);
+}
+
+/** Font size and text width only apply to formats that lay out text themselves. */
+function updateTextOptions(patch: Partial<ViewOptions>): void {
+  if (viewer.getState().textOptions) updateViewOptions(patch);
+}
+
+showViewOptions(viewOptions);
 
 async function openFromPicker(): Promise<void> {
   const file = await pickFile(supportedExtensions());
@@ -60,6 +86,10 @@ const actions: ControlActions = {
     // Reflowable content (EPUB) takes its text colors from the theme.
     viewer.refresh();
   },
+  toggleDoublePage: () => updateViewOptions({ doublePage: !viewOptions.doublePage }),
+  textLarger: () => updateTextOptions({ textScale: stepTextScale(viewOptions.textScale, 1) }),
+  textSmaller: () => updateTextOptions({ textScale: stepTextScale(viewOptions.textScale, -1) }),
+  cycleTextWidth: () => updateTextOptions({ textWidth: nextTextWidth(viewOptions.textWidth) }),
 };
 
 bindKeyboard(document, actions);
@@ -74,6 +104,10 @@ byId("open-button").addEventListener("click", () => void openFromPicker());
 byId("empty-open-button").addEventListener("click", () => void openFromPicker());
 byId("theme-button").addEventListener("click", actions.toggleTheme);
 byId("fullscreen-button").addEventListener("click", actions.toggleFullscreen);
+byId("double-page-button").addEventListener("click", actions.toggleDoublePage);
+byId("text-larger-button").addEventListener("click", actions.textLarger);
+byId("text-smaller-button").addEventListener("click", actions.textSmaller);
+byId("text-width-button").addEventListener("click", actions.cycleTextWidth);
 
 // Buttons keep focus after a click; blur so Space/Enter don't re-trigger them while reading.
 for (const button of document.querySelectorAll("button")) {

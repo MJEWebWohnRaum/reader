@@ -1,14 +1,18 @@
 import type { FormatEntry } from "../reader/registry";
-import { ReaderError, type ReaderAdapter } from "../reader/types";
+import { ReaderError, type ReaderAdapter, type ViewOptions } from "../reader/types";
 
 export type ViewerStatus = "empty" | "loading" | "ready" | "error";
 
 export interface ViewerState {
   status: ViewerStatus;
   fileName: string;
-  /** Zero-based index of the current page. */
+  /** Zero-based index of the current page (the left one in a double page). */
   page: number;
+  /** Last visible page: `page + 1` in a double page, otherwise `page`. */
+  pageEnd: number;
   pageCount: number;
+  /** The open format lays out text itself and honours font size and text width. */
+  textOptions: boolean;
   /** Message for status "error", or for a single page that failed to render. */
   message: string;
 }
@@ -20,7 +24,25 @@ interface OpenDocument {
   renderRequested: boolean;
 }
 
-const EMPTY_STATE: ViewerState = { status: "empty", fileName: "", page: 0, pageCount: 0, message: "" };
+const EMPTY_STATE: ViewerState = {
+  status: "empty",
+  fileName: "",
+  page: 0,
+  pageEnd: 0,
+  pageCount: 0,
+  textOptions: false,
+  message: "",
+};
+
+/** First page of the double page containing `page`: the cover stands alone, then 2+3, 4+5 … */
+export function spreadStart(page: number): number {
+  return page <= 0 ? 0 : page % 2 === 1 ? page : page - 1;
+}
+
+/** Pages shown together, starting at `start` (a spread start). */
+export function spreadPages(start: number, pageCount: number): number[] {
+  return start === 0 || start + 1 >= pageCount ? [start] : [start, start + 1];
+}
 
 /**
  * Owns the currently open document: page index, rendering and cleanup.
@@ -38,6 +60,7 @@ export class Viewer {
     private readonly host: HTMLElement,
     private readonly resolveFormat: (file: File) => FormatEntry | undefined,
     private readonly onChange: (state: Readonly<ViewerState>) => void,
+    private options: ViewOptions = { doublePage: false, textScale: 1, textWidth: "medium" },
   ) {}
 
   getState(): Readonly<ViewerState> {
@@ -55,7 +78,7 @@ export class Viewer {
 
     const generation = ++this.generation;
     this.disposeDocument();
-    this.setState({ status: "loading", fileName: file.name, page: 0, pageCount: 0, message: "" });
+    this.setState({ status: "loading", fileName: file.name, page: 0, pageCount: 0, textOptions: false, message: "" });
     if (!format) {
       this.fail(unsupported);
       return;
@@ -77,9 +100,10 @@ export class Viewer {
       this.host.append(element);
       this.doc = { adapter, element, rendering: false, renderRequested: false };
 
+      adapter.setViewOptions?.(this.options);
       adapter.onPageCountChange?.((newCount) => {
         if (generation !== this.generation || newCount < 1) return;
-        const page = Math.min(this.state.page, newCount - 1);
+        const page = this.normalize(Math.min(this.state.page, newCount - 1));
         const pageChanged = page !== this.state.page;
         this.setState({ pageCount: newCount, page });
         if (pageChanged) this.requestRender();
@@ -92,7 +116,7 @@ export class Viewer {
         if (page !== this.state.page) this.setState({ page });
       });
 
-      this.setState({ status: "ready", pageCount: count });
+      this.setState({ status: "ready", pageCount: count, textOptions: adapter.setViewOptions !== undefined });
       this.requestRender();
     } catch (error) {
       if (adapter) safeClose(adapter);
@@ -102,18 +126,35 @@ export class Viewer {
   }
 
   next(): void {
-    this.goTo(this.state.page + 1);
+    const { page, pageEnd, pageCount } = this.state;
+    if (pageEnd + 1 < pageCount) this.goTo(this.pairing() ? pageEnd + 1 : page + 1);
   }
 
   prev(): void {
-    this.goTo(this.state.page - 1);
+    const page = this.state.page;
+    this.goTo(this.pairing() ? spreadStart(page - 1) : page - 1);
   }
 
   goTo(index: number): void {
     if (this.state.status !== "ready") return;
-    const target = Math.max(0, Math.min(index, this.state.pageCount - 1));
+    const target = this.normalize(Math.max(0, Math.min(index, this.state.pageCount - 1)));
     if (target === this.state.page) return;
     this.setState({ page: target, message: "" });
+    this.requestRender();
+  }
+
+  /** Applies new display settings to the open document (and to documents opened later). */
+  setViewOptions(options: ViewOptions): void {
+    const wasPairing = this.pairing();
+    this.options = options;
+    const doc = this.doc;
+    if (!doc || this.state.status !== "ready") return;
+    if (doc.adapter.setViewOptions) {
+      doc.adapter.setViewOptions(options);
+    } else if (wasPairing !== this.pairing()) {
+      // The old view stays until the new one is rendered (see renderSpread / renderPage).
+      this.setState({ page: this.normalize(this.state.page) });
+    }
     this.requestRender();
   }
 
@@ -141,19 +182,70 @@ export class Viewer {
       while (doc.renderRequested && doc === this.doc) {
         doc.renderRequested = false;
         const index = this.state.page;
+        // The page whose rendering failed, if any (in a double page, possibly the right one).
+        let failed: { page: number; error: unknown } | undefined;
         try {
-          await doc.adapter.renderPage(index, doc.element);
-          if (doc === this.doc && index === this.failedPage) this.setState({ message: "" });
+          if (this.pairing()) failed = await this.renderSpread(doc, spreadPages(index, this.state.pageCount));
+          else await doc.adapter.renderPage(index, doc.element);
         } catch (error) {
-          if (doc === this.doc && index === this.state.page) {
-            this.setState({ message: userMessage(error, `Seite ${index + 1} konnte nicht angezeigt werden.`) });
-            this.failedPage = index;
-          }
+          failed = { page: index, error };
+        }
+        if (doc !== this.doc) continue;
+        if (failed && index === this.state.page) {
+          this.setState({ message: userMessage(failed.error, `Seite ${failed.page + 1} konnte nicht angezeigt werden.`) });
+          this.failedPage = index;
+        } else if (!failed && index === this.failedPage) {
+          this.setState({ message: "" });
         }
       }
     } finally {
       doc.rendering = false;
     }
+  }
+
+  /**
+   * Two pages side by side in their own slots; a single page (cover, last page) is
+   * centered. The new pair is rendered hidden but laid out (PDF pages are fitted to
+   * their slot) and only then replaces the old view, so both pages change together.
+   * A page that fails to render leaves its slot empty; the other page is still shown.
+   */
+  private async renderSpread(
+    doc: OpenDocument,
+    pages: number[],
+  ): Promise<{ page: number; error: unknown } | undefined> {
+    const [first, second] = pages;
+    if (first === undefined) return undefined;
+    const pair = document.createElement("div");
+    pair.className = second === undefined ? "spread-pair single pending" : "spread-pair pending";
+    const left = document.createElement("div");
+    left.className = "page-slot left";
+    const right = document.createElement("div");
+    right.className = "page-slot right";
+    pair.append(left, right);
+    doc.element.append(pair);
+    let failed: { page: number; error: unknown } | undefined;
+    for (const [page, slot] of [[first, left], [second, right]] as const) {
+      if (page === undefined || doc !== this.doc) continue;
+      try {
+        await doc.adapter.renderPage(page, slot);
+      } catch (error) {
+        slot.replaceChildren();
+        failed ??= { page, error };
+      }
+    }
+    // Replace whatever was shown before: an older pair or a single page.
+    for (const old of [...doc.element.children]) if (old !== pair) old.remove();
+    pair.classList.remove("pending");
+    return failed;
+  }
+
+  /** Whether the viewer pairs pages itself (double page for fixed-layout formats). */
+  private pairing(): boolean {
+    return this.options.doublePage && this.doc !== undefined && this.doc.adapter.setViewOptions === undefined;
+  }
+
+  private normalize(page: number): number {
+    return this.pairing() ? spreadStart(page) : page;
   }
 
   private disposeDocument(): void {
@@ -171,7 +263,10 @@ export class Viewer {
   private setState(patch: Partial<ViewerState>): void {
     // Any new message replaces a shown page error.
     if (patch.message !== undefined) this.failedPage = undefined;
-    this.state = { ...this.state, ...patch };
+    const next = { ...this.state, ...patch };
+    const shown = this.pairing() && next.status === "ready" ? spreadPages(next.page, next.pageCount) : [next.page];
+    next.pageEnd = shown.at(-1) ?? next.page;
+    this.state = next;
     this.onChange(this.state);
   }
 }

@@ -25,6 +25,22 @@ export interface ReaderAdapter {
    * e.g. when the start of the book is reached earlier than expected after a re-flow.
    */
   onPageChange?(listener: (index: number) => void): void;
+  /**
+   * Reflowable formats lay out double pages, font size and text width themselves.
+   * Called before the first render and whenever the settings change. Adapters
+   * without it get double pages from the viewer (two pages side by side).
+   */
+  setViewOptions?(options: ViewOptions): void;
+}
+
+export type TextWidth = "narrow" | "medium" | "wide";
+
+/** Display settings chosen by the user; passed to adapters that lay out text themselves. */
+export interface ViewOptions {
+  doublePage: boolean;
+  /** Font size factor for reflowable text, 1 = publisher default. */
+  textScale: number;
+  textWidth: TextWidth;
 }
 
 export type AdapterFactory = () => Promise<ReaderAdapter>;
