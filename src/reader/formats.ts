@@ -2,6 +2,16 @@ import { registerFormat } from "./registry";
 
 /** Registers all supported formats. Adapters are imported lazily. */
 export function registerAllFormats(): void {
-  // Formats are added per phase (see PROJEKT.md).
-  void registerFormat;
+  registerFormat({
+    label: "PDF",
+    extensions: ["pdf"],
+    mimeTypes: ["application/pdf"],
+    load: async () => (await import("./adapters/pdf")).default(),
+  });
+  registerFormat({
+    label: "Comic (CBZ)",
+    extensions: ["cbz"],
+    mimeTypes: ["application/vnd.comicbook+zip", "application/x-cbz"],
+    load: async () => (await import("./adapters/cbz")).default(),
+  });
 }

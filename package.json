@@ -4,17 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-pdf-assets.mjs",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "prebuild": "node scripts/copy-pdf-assets.mjs",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
     "test": "node scripts/vitest.mjs run",
     "fixtures": "node scripts/create-public-fixtures.mjs"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "jsdom": "^31.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "jszip": "^3.10.2",
+    "pdfjs-dist": "^6.5.438"
   }
 }

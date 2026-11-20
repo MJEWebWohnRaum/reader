@@ -1,0 +1,8 @@
+{
+  // Tests may use Node APIs (fixtures from disk); src/ must not, so Node types live only here.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": ["../src", "."]
+}

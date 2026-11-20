@@ -1,5 +1,6 @@
 /test-daten/
 /node_modules/
 /dist/
+/public/pdfjs/
 /.DS_Store
 /Thumbs.db

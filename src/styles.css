@@ -178,8 +178,14 @@ body.error .message {
 
 /* A page-level render error is shown on top of the document. */
 body.ready .message:not(:empty) {
-  display: flex;
-  inset: auto 0 3rem 0;
+  display: block;
+  inset: auto auto 3rem 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  background: var(--panel);
   pointer-events: none;
 }
 
