@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.pdf binary
+*.epub binary
+*.cbz binary
+*.cbr binary
+*.cb7 binary
+*.cbt binary
+*.png binary
+*.jpg binary
+*.wasm binary
