@@ -1,0 +1,220 @@
+:root {
+  --bg: #121212;
+  --fg: #d8d8d8;
+  --muted: #8a8a8a;
+  --panel: rgba(28, 28, 28, 0.92);
+  --border: #333;
+  --accent: #6aa4ff;
+  --error: #ff8a80;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f3f2ef;
+  --fg: #1f1f1f;
+  --muted: #6b6b6b;
+  --panel: rgba(255, 255, 255, 0.94);
+  --border: #d4d4d4;
+  --accent: #1d5fd1;
+  --error: #b3261e;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Toolbar floats above the page so the page can use the full window height. */
+.toolbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.25s;
+}
+
+body.idle .toolbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.idle {
+  cursor: none;
+}
+
+.file-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.icon-button {
+  display: inline-flex;
+  padding: 0.35rem;
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+}
+
+.page-host,
+.document {
+  position: absolute;
+  inset: 0;
+}
+
+.document {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Fixed-layout pages scale up or down to the window height (or width, if narrower). */
+.document > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Canvas pages are sized by their adapter to fit the container. */
+.document > canvas {
+  display: block;
+}
+
+.input-layer {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+body.ready .input-layer {
+  display: block;
+}
+
+.empty-hint,
+.loading,
+.message {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-hint p {
+  margin: 0;
+}
+
+.formats {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+body.empty .empty-hint,
+body.loading .loading,
+body.error .message {
+  display: flex;
+}
+
+.message {
+  color: var(--error);
+}
+
+/* A page-level render error is shown on top of the document. */
+body.ready .message:not(:empty) {
+  display: flex;
+  inset: auto 0 3rem 0;
+  pointer-events: none;
+}
+
+.page-indicator {
+  position: fixed;
+  bottom: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.page-indicator:empty {
+  display: none;
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  background: var(--panel);
+  border: 3px dashed var(--accent);
+  pointer-events: none;
+}
+
+body.dragging .drop-overlay {
+  display: flex;
+}

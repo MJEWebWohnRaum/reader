@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reader</title>
+  </head>
+  <body>
+    <header class="toolbar" id="toolbar">
+      <button type="button" id="open-button" title="Datei öffnen">Öffnen</button>
+      <span class="file-name" id="file-name"></span>
+      <span class="spacer"></span>
+      <button type="button" class="icon-button" id="theme-button" title="Darkmode umschalten (D)" aria-label="Darkmode umschalten">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+      </button>
+      <button type="button" class="icon-button" id="fullscreen-button" title="Vollbild (F)" aria-label="Vollbild umschalten">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
+      </button>
+    </header>
+
+    <main class="stage" id="stage">
+      <div class="page-host" id="page-host"></div>
+      <div class="input-layer" id="input-layer"></div>
+      <div class="empty-hint" id="empty-hint">
+        <p>Datei hierher ziehen oder</p>
+        <button type="button" id="empty-open-button">Datei öffnen</button>
+        <p class="formats" id="formats"></p>
+      </div>
+      <div class="loading" id="loading">Wird geladen …</div>
+      <div class="message" id="message" role="alert"></div>
+    </main>
+
+    <div class="page-indicator" id="page-indicator" aria-live="polite"></div>
+    <div class="drop-overlay" id="drop-overlay">Loslassen zum Öffnen</div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
