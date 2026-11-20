@@ -59,6 +59,9 @@ interface ReaderAdapter {
   // Optional, für umfließende Formate (EPUB): meldet geänderte Seitenzahl,
   // z. B. nach Berechnung der Seiten oder nach Größenänderung des Fensters.
   onPageCountChange?(listener: (count: number) => void): void;
+  // Optional, für umfließende Formate: meldet, wenn die angezeigte Seite vom
+  // angefragten Index abweicht (z. B. Buchanfang nach Umbruch früher erreicht).
+  onPageChange?(listener: (index: number) => void): void;
 }
 ```
 Die UI kennt nur dieses Interface, niemals ein konkretes Format.

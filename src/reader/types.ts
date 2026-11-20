@@ -5,9 +5,10 @@
  * - `pageCount()` must return >= 1 right after `open()` resolves, otherwise the
  *   document counts as empty. Slow formats return a provisional value and correct
  *   it later via `onPageCountChange`.
- * - `renderPage` fully replaces the container's content. It may be called again
- *   for the same page (e.g. after a resize). The container is attached to the DOM
- *   and sized before the first call. Calls are never concurrent.
+ * - `renderPage` fills the container (fixed-layout formats replace its content on
+ *   every call; reflowable formats may keep a persistent view). It may be called
+ *   again for the same page (e.g. after a resize). The container is attached to
+ *   the DOM and sized before the first call. Calls are never concurrent.
  * - `close()` may be called at any time: while `open()` or `renderPage()` is still
  *   running, and after a failed `open()`. It must release all resources (object
  *   URLs, workers, render tasks) and should not throw.
@@ -19,6 +20,11 @@ export interface ReaderAdapter {
   close(): void;
   /** Reflowable formats (EPUB) report page count changes, e.g. after layout or resize. */
   onPageCountChange?(listener: (count: number) => void): void;
+  /**
+   * Reflowable formats report when the shown page differs from the requested index,
+   * e.g. when the start of the book is reached earlier than expected after a re-flow.
+   */
+  onPageChange?(listener: (index: number) => void): void;
 }
 
 export type AdapterFactory = () => Promise<ReaderAdapter>;

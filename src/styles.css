@@ -133,6 +133,12 @@ body.idle {
   display: block;
 }
 
+/* Reflowable text: a readable column, clear of the page indicator. */
+.document > .epub-page {
+  width: min(100% - 2rem, 48rem);
+  height: calc(100% - 5rem);
+}
+
 .input-layer {
   position: absolute;
   inset: 0;

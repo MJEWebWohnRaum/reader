@@ -55,7 +55,11 @@ const actions: ControlActions = {
   next: () => viewer.next(),
   prev: () => viewer.prev(),
   toggleFullscreen: () => void toggleFullscreen(),
-  toggleTheme: () => void toggleTheme(),
+  toggleTheme: () => {
+    toggleTheme();
+    // Reflowable content (EPUB) takes its text colors from the theme.
+    viewer.refresh();
+  },
 };
 
 bindKeyboard(document, actions);

@@ -9,6 +9,12 @@ export function registerAllFormats(): void {
     load: async () => (await import("./adapters/pdf")).default(),
   });
   registerFormat({
+    label: "EPUB",
+    extensions: ["epub"],
+    mimeTypes: ["application/epub+zip"],
+    load: async () => (await import("./adapters/epub")).default(),
+  });
+  registerFormat({
     label: "Comic (CBZ)",
     extensions: ["cbz"],
     mimeTypes: ["application/vnd.comicbook+zip", "application/x-cbz"],

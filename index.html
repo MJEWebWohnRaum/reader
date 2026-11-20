@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Everything stays local: documents (e.g. EPUB chapters, which inherit this policy)
+         must not load anything from the network. Images/fonts/media only come from blob:
+         or data: URLs, so unresolved relative EPUB paths can't reach the app's origin either. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' blob:; img-src blob: data:; font-src blob: data:; connect-src 'self' blob: data:; worker-src 'self' blob:; frame-src 'self' blob: about:; media-src blob: data:; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
     <title>Reader</title>
   </head>
   <body>

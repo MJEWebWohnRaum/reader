@@ -9,6 +9,7 @@ class FakeAdapter implements ReaderAdapter {
   pendingRenders: Array<() => void> = [];
   manualRender = false;
   countListener: ((count: number) => void) | undefined;
+  pageListener: ((index: number) => void) | undefined;
 
   constructor(
     private count: number,
@@ -31,6 +32,9 @@ class FakeAdapter implements ReaderAdapter {
   }
   onPageCountChange(listener: (count: number) => void): void {
     this.countListener = listener;
+  }
+  onPageChange(listener: (index: number) => void): void {
+    this.pageListener = listener;
   }
 }
 
@@ -196,6 +200,21 @@ describe("Viewer", () => {
     expect(viewer.getState()).toMatchObject({ pageCount: 5, page: 4 });
     await flush();
     expect(adapter.rendered.at(-1)).toBe(4);
+  });
+
+  it("follows the page reported by the adapter without re-rendering", async () => {
+    const adapter = new FakeAdapter(10);
+    const viewer = new Viewer(host, () => format(adapter), onChange);
+    await viewer.open(file());
+    viewer.goTo(5);
+    await flush();
+    const renders = adapter.rendered.length;
+    adapter.pageListener?.(0);
+    expect(viewer.getState().page).toBe(0);
+    adapter.pageListener?.(99);
+    expect(viewer.getState().page).toBe(9);
+    await flush();
+    expect(adapter.rendered).toHaveLength(renders);
   });
 
   it("reports an error even if close() throws after a failed open", async () => {

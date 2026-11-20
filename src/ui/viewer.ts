@@ -84,6 +84,13 @@ export class Viewer {
         this.setState({ pageCount: newCount, page });
         if (pageChanged) this.requestRender();
       });
+      adapter.onPageChange?.((index) => {
+        // A page turn queued meanwhile wins; the adapter will report again if needed.
+        if (generation !== this.generation || this.doc?.renderRequested) return;
+        const page = Math.max(0, Math.min(index, this.state.pageCount - 1));
+        // Only the indicator follows; the adapter already shows this page.
+        if (page !== this.state.page) this.setState({ page });
+      });
 
       this.setState({ status: "ready", pageCount: count });
       this.requestRender();
